@@ -1,5 +1,5 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
-import qrcode from 'qrcode-terminal'
+import QRCode from 'qrcode'
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
@@ -10,13 +10,14 @@ async function startBot() {
 
   sock.ev.on('creds.update', saveCreds)
 
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
 
-    // 🔥 MOSTRAR QR CORRETAMENTE
+    // 🔥 GERAR QR EM LINK
     if (qr) {
-      console.log('\n📲 ESCANEIE O QR CODE:\n')
-      qrcode.generate(qr, { small: true })
+      const qrImage = await QRCode.toDataURL(qr)
+      console.log('\n📲 ABRA ESSE LINK NO NAVEGADOR:\n')
+      console.log(qrImage)
     }
 
     if (connection === 'close') {
@@ -25,9 +26,7 @@ async function startBot() {
 
       console.log('❌ Conexão fechada. Reconectando...', shouldReconnect)
 
-      if (shouldReconnect) {
-        startBot()
-      }
+      if (shouldReconnect) startBot()
     }
 
     if (connection === 'open') {
@@ -48,7 +47,7 @@ async function startBot() {
     console.log('📩 Mensagem:', text)
 
     if (text === 'oi') {
-      await sock.sendMessage(from, { text: '🔥 Fala! Bot online!' })
+      await sock.sendMessage(from, { text: '🔥 Bot online!' })
     }
   })
 }
