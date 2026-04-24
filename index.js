@@ -1,27 +1,59 @@
-const express = require('express');
-const mongoose = require('mongoose');
+import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys'
+import { DisconnectReason } from '@whiskeysockets/baileys'
+import qrcode from 'qrcode-terminal'
 
-const app = express();
+async function startBot() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth')
 
-// =====================
-// 🔗 CONEXÃO MONGODB
-// =====================
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB conectado"))
-  .catch(err => console.log("❌ Erro MongoDB:", err));
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true
+  })
 
-// =====================
-// 🚀 ROTA TESTE
-// =====================
-app.get('/', (req, res) => {
-  res.send('🔥 Bot rodando com MongoDB!');
-});
+  sock.ev.on('creds.update', saveCreds)
 
-// =====================
-// 🌐 SERVIDOR
-// =====================
-const PORT = process.env.PORT || 3000;
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect, qr } = update
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
+    if (qr) {
+      console.log('📲 ESCANEIE O QR CODE ABAIXO:')
+      qrcode.generate(qr, { small: true })
+    }
+
+    if (connection === 'close') {
+      const shouldReconnect =
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
+      console.log('❌ Conexão fechada. Reconectando...', shouldReconnect)
+
+      if (shouldReconnect) {
+        startBot()
+      }
+    } else if (connection === 'open') {
+      console.log('✅ BOT WHATSAPP CONECTADO!')
+    }
+  })
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0]
+    if (!msg.message) return
+
+    const text =
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text
+
+    const from = msg.key.remoteJid
+
+    console.log('📩 Mensagem recebida:', text)
+
+    if (text === 'oi') {
+      await sock.sendMessage(from, { text: '🔥 Fala! Bot de apostas online!' })
+    }
+
+    if (text === 'placar') {
+      await sock.sendMessage(from, { text: '⚽ Palmeiras 2x1 Flamengo (exemplo)' })
+    }
+  })
+}
+
+startBot()
