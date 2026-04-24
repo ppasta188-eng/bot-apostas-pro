@@ -1,5 +1,16 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
 const pino = require('pino')
+const express = require('express')
+
+const app = express()
+
+app.get('/', (req, res) => {
+    res.send('Bot rodando 🚀')
+})
+
+app.listen(process.env.PORT || 3000, () => {
+    console.log('🌐 Servidor web ativo')
+})
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth')
@@ -15,7 +26,7 @@ async function startBot() {
         const { connection, lastDisconnect, qr } = update
 
         if (qr) {
-            console.log('\n📲 ESCANEIE O QR ABAIXO:\n')
+            console.log('\n📲 ESCANEIE O QR:\n')
             require('qrcode-terminal').generate(qr, { small: true })
         }
 
@@ -27,7 +38,7 @@ async function startBot() {
             const shouldReconnect =
                 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
-            console.log('❌ Conexão fechada. Reconectando...', shouldReconnect)
+            console.log('❌ Conexão caiu, tentando de novo...')
 
             if (shouldReconnect) {
                 startBot()
@@ -37,7 +48,6 @@ async function startBot() {
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0]
-
         if (!msg.message) return
 
         const text =
