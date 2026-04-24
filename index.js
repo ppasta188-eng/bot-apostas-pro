@@ -1,36 +1,27 @@
-require("dotenv").config();
-
-const express = require("express");
-const axios = require("axios");
+const express = require('express');
+const mongoose = require('mongoose');
 
 const app = express();
-app.use(express.json());
 
-// 🔑 API via variável de ambiente
-const API_KEY = process.env.API_KEY;
-const BASE_URL = "https://v3.football.api-sports.io";
+// =====================
+// 🔗 CONEXÃO MONGODB
+// =====================
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB conectado"))
+  .catch(err => console.log("❌ Erro MongoDB:", err));
 
-// ================= REQUEST =================
-async function request(url) {
-  try {
-    const res = await axios.get(BASE_URL + url, {
-      headers: { "x-apisports-key": API_KEY }
-    });
-    return res.data.response;
-  } catch (err) {
-    console.log("Erro API:", err.message);
-    return null;
-  }
-}
-
-// ================= TESTE =================
-app.get("/", (req, res) => {
-  res.json({ status: "Bot rodando 🚀" });
+// =====================
+// 🚀 ROTA TESTE
+// =====================
+app.get('/', (req, res) => {
+  res.send('🔥 Bot rodando com MongoDB!');
 });
 
-// ================= SERVER =================
+// =====================
+// 🌐 SERVIDOR
+// =====================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🔥 BOT ONLINE 🔥");
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
