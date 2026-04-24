@@ -1,39 +1,46 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
-import QRCode from 'qrcode'
+import makeWASocket, {
+  useMultiFileAuthState,
+  DisconnectReason
+} from '@whiskeysockets/baileys'
+import { Boom } from '@hapi/boom'
+import qrcode from 'qrcode'
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
 
   const sock = makeWASocket({
-    auth: state
+    auth: state,
+    printQRInTerminal: false
   })
-
-  sock.ev.on('creds.update', saveCreds)
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
 
-    // 🔥 GERAR QR EM LINK
+    // 🔥 AQUI GERA O QR
     if (qr) {
-      const qrImage = await QRCode.toDataURL(qr)
-      console.log('\n📲 ABRA ESSE LINK NO NAVEGADOR:\n')
+      console.log('📲 ESCANEIE O QR ABAIXO:')
+
+      const qrImage = await qrcode.toDataURL(qr)
       console.log(qrImage)
     }
 
     if (connection === 'close') {
       const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+        (lastDisconnect?.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut
 
       console.log('❌ Conexão fechada. Reconectando...', shouldReconnect)
 
-      if (shouldReconnect) startBot()
-    }
-
-    if (connection === 'open') {
-      console.log('✅ BOT WHATSAPP CONECTADO!')
+      if (shouldReconnect) {
+        startBot()
+      }
+    } else if (connection === 'open') {
+      console.log('✅ BOT CONECTADO!')
     }
   })
 
+  sock.ev.on('creds.update', saveCreds)
+
+  // 👇 TESTE DE RESPOSTA
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0]
     if (!msg.message) return
@@ -42,12 +49,10 @@ async function startBot() {
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text
 
-    const from = msg.key.remoteJid
-
-    console.log('📩 Mensagem:', text)
-
-    if (text === 'oi') {
-      await sock.sendMessage(from, { text: '🔥 Bot online!' })
+    if (text?.toLowerCase() === 'oi') {
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: '🔥 Bot ativo!'
+      })
     }
   })
 }
