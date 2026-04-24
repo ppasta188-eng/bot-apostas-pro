@@ -1,26 +1,34 @@
 import makeWASocket, {
   useMultiFileAuthState,
-  DisconnectReason
+  DisconnectReason,
+  fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys'
-import { Boom } from '@hapi/boom'
 import qrcode from 'qrcode'
+import { Boom } from '@hapi/boom'
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
 
+  const { version } = await fetchLatestBaileysVersion()
+
   const sock = makeWASocket({
+    version,
     auth: state,
-    printQRInTerminal: false
+    printQRInTerminal: false,
+    browser: ['Chrome', 'Android', '1.0.0']
   })
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
 
-    // 🔥 AQUI GERA O QR
+    // 🔥 FORÇA QR
     if (qr) {
-      console.log('📲 ESCANEIE O QR ABAIXO:')
+      console.log('\n📲 ESCANEIE O QR:\n')
 
-      const qrImage = await qrcode.toDataURL(qr)
+      const qrImage = await qrcode.toString(qr, {
+        type: 'terminal'
+      })
+
       console.log(qrImage)
     }
 
@@ -33,14 +41,15 @@ async function startBot() {
       if (shouldReconnect) {
         startBot()
       }
-    } else if (connection === 'open') {
+    }
+
+    if (connection === 'open') {
       console.log('✅ BOT CONECTADO!')
     }
   })
 
   sock.ev.on('creds.update', saveCreds)
 
-  // 👇 TESTE DE RESPOSTA
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0]
     if (!msg.message) return
@@ -51,7 +60,7 @@ async function startBot() {
 
     if (text?.toLowerCase() === 'oi') {
       await sock.sendMessage(msg.key.remoteJid, {
-        text: '🔥 Bot ativo!'
+        text: '🔥 Bot funcionando!'
       })
     }
   })
