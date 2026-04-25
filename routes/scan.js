@@ -1,13 +1,15 @@
-import { getJogosHoje } from "../services/apiService.js";
+import express from "express";
+import { scanGames } from "../services/analysisService.js";
 
-export async function scanGames() {
-  const jogos = await getJogosHoje();
+const router = express.Router();
 
-  return jogos.slice(0, 10).map(jogo => ({
-    jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
-    liga: jogo.league.name,
-    pais: jogo.league.country,
-    data: jogo.fixture.date,
-    status: jogo.fixture.status.short
-  }));
-}
+router.get("/", async (req, res) => {
+  try {
+    const jogos = await scanGames();
+    res.json(jogos);
+  } catch (error) {
+    res.status(500).json({ erro: "Erro ao buscar jogos" });
+  }
+});
+
+export default router;
