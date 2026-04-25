@@ -1,15 +1,15 @@
 {
   "name": "bot-apostas-pro",
   "version": "1.0.0",
-  "description": "Scanner profissional de apostas",
+  "description": "API profissional de apostas esportivas",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
+    "axios": "^1.6.8",
     "express": "^4.18.2",
-    "node-fetch": "^3.3.2"
+    "cors": "^2.8.5"
   }
 }
