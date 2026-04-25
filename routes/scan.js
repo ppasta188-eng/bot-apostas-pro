@@ -1,18 +1,16 @@
-import { getFixtures, getOdds } from "../serviços/apiService.js";
-import { analyzeGame } from "../serviços/analysisService.js";
-
-export async function scanGames() {
-  const jogos = await getFixtures();
-
-  let resultados = [];
-
-  for (let jogo of jogos) {
-    const odds = await getOdds(jogo.fixture.id);
-
-    const analise = analyzeGame(jogo, odds);
-
-    resultados.push(analise);
-  }
-
-  return resultados;
+export function scanGames() {
+  return [
+    {
+      jogo: "Flamengo vs Palmeiras",
+      mercado: "Over 2.5",
+      odd: 1.85,
+      confianca: "Alta"
+    },
+    {
+      jogo: "Real Madrid vs Barcelona",
+      mercado: "Ambas Marcam",
+      odd: 1.72,
+      confianca: "Média"
+    }
+  ];
 }
