@@ -1,32 +1,34 @@
-export function analyzeGame(fixture, odds) {
-  const home = fixture.teams.home.name;
-  const away = fixture.teams.away.name;
+import { getJogos3Dias } from "./apiService.js";
 
-  let resultado = {
-    jogo: `${home} vs ${away}`,
-    recomendacao: "SEM VALOR",
-    risco: "ALTO"
-  };
+const LIGAS_TOP = [
+  "Premier League",
+  "La Liga",
+  "Serie A",
+  "Bundesliga",
+  "Ligue 1",
+  "Brasileirão Série A",
+  "UEFA Champions League",
+  "UEFA Europa League"
+];
 
-  if (!odds || odds.length === 0) return resultado;
+export async function scanGames() {
+  const jogos = await getJogos3Dias();
 
-  try {
-    const bets = odds[0].bookmakers[0].bets;
+  const filtrados = jogos.filter(jogo => {
+    const liga = jogo.league.name;
+    const status = jogo.fixture.status.short;
 
-    const overUnder = bets.find(b => b.name === "Goals Over/Under");
+    return (
+      LIGAS_TOP.includes(liga) &&
+      status === "NS"
+    );
+  });
 
-    if (overUnder) {
-      const over25 = overUnder.values.find(v => v.value === "Over 2.5");
-
-      if (over25 && parseFloat(over25.odd) >= 1.70) {
-        resultado.recomendacao = "OVER 2.5";
-        resultado.risco = "MÉDIO";
-      }
-    }
-
-  } catch (erro) {
-    console.log("Erro:", erro);
-  }
-
-  return resultado;
+  return filtrados.slice(0, 15).map(jogo => ({
+    jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
+    liga: jogo.league.name,
+    pais: jogo.league.country,
+    horario: jogo.fixture.date,
+    status: jogo.fixture.status.short
+  }));
 }
