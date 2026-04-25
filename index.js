@@ -1,39 +1,22 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys')
-const qrcode = require('qrcode-terminal')
+import express from "express";
+import { scanGames } from "./rotas/scan.js";
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth')
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    const sock = makeWASocket({
-        auth: state
-    })
+app.get("/", (req, res) => {
+  res.send("API rodando 🚀");
+});
 
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update
+app.get("/scan", async (req, res) => {
+  try {
+    const dados = await scanGames();
+    res.json(dados);
+  } catch (erro) {
+    res.status(500).json({ erro: "Erro no scanner" });
+  }
+});
 
-        if (qr) {
-            console.log('📱 ESCANEIE O QR:')
-            qrcode.generate(qr, { small: true })
-        }
-
-        if (connection === 'open') {
-            console.log('✅ BOT CONECTADO!')
-        }
-
-        if (connection === 'close') {
-            const shouldReconnect =
-                (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-
-            if (shouldReconnect) {
-                console.log('🔄 Reconectando...')
-                startBot()
-            } else {
-                console.log('❌ Sessão perdida. Escaneie novamente.')
-            }
-        }
-    })
-
-    sock.ev.on('creds.update', saveCreds)
-}
-
-startBot()
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
