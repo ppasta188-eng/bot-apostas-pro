@@ -1,22 +1,52 @@
 import { getJogos3Dias } from "./apiService.js";
 
+const LIGAS_TOP = [
+  "Premier League",
+  "La Liga",
+  "Serie A",
+  "Bundesliga",
+  "Ligue 1",
+  "Brazil",
+  "Champions League",
+  "Europa League"
+];
+
+// ✅ Apenas jogos jogáveis
+const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
+
 export async function scanGames() {
   try {
     const jogos = await getJogos3Dias();
 
-    console.log("TOTAL JOGOS API:", jogos?.length || 0);
+    const agora = new Date();
+    const limite = new Date();
+    limite.setDate(agora.getDate() + 3);
 
-    // 🔥 MOSTRAR 10 JOGOS REAIS DA API
-    jogos.slice(0, 10).forEach(jogo => {
-      console.log({
-        liga: jogo?.league?.name,
-        pais: jogo?.league?.country,
-        status: jogo?.fixture?.status?.short,
-        data: jogo?.fixture?.date
-      });
+    const filtrados = jogos.filter(jogo => {
+      const liga = jogo?.league?.name || "";
+      const status = jogo?.fixture?.status?.short;
+      const dataRaw = jogo?.fixture?.date;
+
+      if (!dataRaw) return false;
+
+      const dataJogo = new Date(dataRaw);
+
+      const ligaValida = LIGAS_TOP.some(l =>
+        liga.toLowerCase().includes(l.toLowerCase())
+      );
+
+      return (
+        ligaValida &&
+        STATUS_VALIDOS.includes(status) &&
+        dataJogo >= agora &&
+        dataJogo <= limite
+      );
     });
 
-    return jogos.slice(0, 10).map(jogo => ({
+    console.log("TOTAL API:", jogos.length);
+    console.log("FILTRADOS:", filtrados.length);
+
+    return filtrados.slice(0, 10).map(jogo => ({
       jogo: `${jogo?.teams?.home?.name} vs ${jogo?.teams?.away?.name}`,
       liga: jogo?.league?.name,
       pais: jogo?.league?.country,
@@ -25,7 +55,7 @@ export async function scanGames() {
     }));
 
   } catch (error) {
-    console.error("ERRO:", error.message);
+    console.error("ERRO NO SCAN:", error.message);
     return [];
   }
 }
