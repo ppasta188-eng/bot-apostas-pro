@@ -11,28 +11,46 @@ const LIGAS_TOP = [
   "UEFA Europa League"
 ];
 
+const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
+
 export async function scanGames() {
-  const jogos = await getJogos3Dias();
+  try {
+    const jogos = await getJogos3Dias();
 
-  const filtrados = jogos.filter(jogo => {
-    const liga = jogo?.league?.name;
-    const status = jogo?.fixture?.status?.short;
+    const agora = new Date();
+    const limite = new Date();
+    limite.setDate(agora.getDate() + 3);
 
-    return (
-      LIGAS_TOP.includes(liga) &&
-      status === "NS" // só jogos não iniciados
-    );
-  });
+    const filtrados = jogos.filter(jogo => {
+      const liga = jogo?.league?.name;
+      const status = jogo?.fixture?.status?.short;
+      const dataRaw = jogo?.fixture?.date;
 
-  // 🔥 DEBUG (IMPORTANTE)
-  console.log("TOTAL JOGOS API:", jogos.length);
-  console.log("TOTAL FILTRADOS:", filtrados.length);
+      if (!dataRaw) return false;
 
-  return filtrados.slice(0, 10).map(jogo => ({
-    jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
-    liga: jogo.league.name,
-    pais: jogo.league.country,
-    horario: jogo.fixture.date,
-    status: jogo.fixture.status.short
-  }));
+      const dataJogo = new Date(dataRaw);
+
+      return (
+        LIGAS_TOP.includes(liga) &&
+        STATUS_VALIDOS.includes(status) &&
+        dataJogo >= agora &&
+        dataJogo <= limite
+      );
+    });
+
+    console.log("TOTAL JOGOS API:", jogos?.length || 0);
+    console.log("TOTAL FILTRADOS:", filtrados.length);
+
+    return filtrados.slice(0, 10).map(jogo => ({
+      jogo: `${jogo?.teams?.home?.name} vs ${jogo?.teams?.away?.name}`,
+      liga: jogo?.league?.name,
+      pais: jogo?.league?.country,
+      horario: jogo?.fixture?.date,
+      status: jogo?.fixture?.status?.short
+    }));
+
+  } catch (error) {
+    console.error("ERRO NO SCAN:", error.message);
+    return [];
+  }
 }
