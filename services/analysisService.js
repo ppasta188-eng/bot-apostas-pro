@@ -1,19 +1,17 @@
 import { getJogos3Dias, getOddsByFixture } from "./apiService.js";
 
-// Ligas top (IDs oficiais)
-const LIGAS_IDS = [39, 140, 135, 78, 61, 71, 253, 128, 2, 3];
+const LIGAS_TOP = [
+  "Premier League",
+  "La Liga",
+  "Serie A",
+  "Bundesliga",
+  "Ligue 1",
+  "Brazil",
+  "Champions League",
+  "Europa League"
+];
 
-const STATUS_VALIDOS = ["NS"];
-
-function calcularProbabilidadeImplicita(odd) {
-  return 1 / odd;
-}
-
-// 🔥 MODELO SIMPLES (depois vamos evoluir pra Poisson)
-function estimarProbabilidade(odd) {
-  // leve ajuste para simular edge
-  return (1 / odd) * 1.08;
-}
+const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
 
 export async function scanGames() {
   try {
@@ -23,78 +21,76 @@ export async function scanGames() {
     const limite = new Date();
     limite.setDate(agora.getDate() + 3);
 
-    const jogosFiltrados = jogos.filter(jogo => {
-      const ligaId = jogo?.league?.id;
+    const filtrados = jogos.filter(jogo => {
+      const liga = jogo?.league?.name || "";
       const status = jogo?.fixture?.status?.short;
-      const dataJogo = new Date(jogo?.fixture?.date);
+      const dataRaw = jogo?.fixture?.date;
+
+      if (!dataRaw) return false;
+
+      const dataJogo = new Date(dataRaw);
+
+      const ligaValida = LIGAS_TOP.some(l =>
+        liga.toLowerCase().includes(l.toLowerCase())
+      );
 
       return (
-        LIGAS_IDS.includes(ligaId) &&
+        ligaValida &&
         STATUS_VALIDOS.includes(status) &&
         dataJogo >= agora &&
         dataJogo <= limite
       );
     });
 
+    console.log("TOTAL JOGOS API:", jogos.length);
+    console.log("TOTAL FILTRADOS:", filtrados.length);
+
     const resultados = [];
 
-    for (const jogo of jogosFiltrados.slice(0, 10)) {
+    for (const jogo of filtrados.slice(0, 10)) {
       const fixtureId = jogo.fixture.id;
 
       const oddsData = await getOddsByFixture(fixtureId);
 
-      if (!oddsData.length) continue;
+      // 🔥 SE NÃO TEM ODDS → IGNORA
+      if (!oddsData || oddsData.length === 0) {
+        console.log("SEM ODDS:", fixtureId);
+        continue;
+      }
 
-      const bookmakers = oddsData[0].bookmakers;
-      if (!bookmakers.length) continue;
+      try {
+        const odd =
+          oddsData[0]?.bookmakers[0]?.bets[0]?.values[0]?.odd;
 
-      const markets = bookmakers[0].bets;
+        if (!odd) continue;
 
-      const matchOdds = markets.find(m => m.name === "Match Winner");
-      if (!matchOdds) continue;
+        const oddNum = parseFloat(odd);
 
-      const oddsCasa = parseFloat(matchOdds.values[0].odd);
-      const oddsEmpate = parseFloat(matchOdds.values[1].odd);
-      const oddsFora = parseFloat(matchOdds.values[2].odd);
+        // 🔥 PROBABILIDADE SIMPLES (BASE INICIAL)
+        const prob = 1 / oddNum;
 
-      // Probabilidades mercado
-      const pCasaMercado = calcularProbabilidadeImplicita(oddsCasa);
-      const pEmpateMercado = calcularProbabilidadeImplicita(oddsEmpate);
-      const pForaMercado = calcularProbabilidadeImplicita(oddsFora);
+        const ev = (prob * oddNum) - 1;
 
-      // Probabilidades modelo (simples por enquanto)
-      const pCasaModelo = estimarProbabilidade(oddsCasa);
-      const pEmpateModelo = estimarProbabilidade(oddsEmpate);
-      const pForaModelo = estimarProbabilidade(oddsFora);
-
-      // EV
-      const evCasa = (pCasaModelo * oddsCasa) - 1;
-      const evEmpate = (pEmpateModelo * oddsEmpate) - 1;
-      const evFora = (pForaModelo * oddsFora) - 1;
-
-      const melhor = [
-        { tipo: "Casa", ev: evCasa, odd: oddsCasa },
-        { tipo: "Empate", ev: evEmpate, odd: oddsEmpate },
-        { tipo: "Fora", ev: evFora, odd: oddsFora }
-      ].sort((a, b) => b.ev - a.ev)[0];
-
-      if (melhor.ev > 0) {
         resultados.push({
           jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
-          mercado: melhor.tipo,
-          odd: melhor.odd,
-          ev: (melhor.ev * 100).toFixed(2) + "%",
-          confianca: melhor.ev > 0.1 ? "Alta" : "Média"
+          liga: jogo.league.name,
+          odd: oddNum,
+          probabilidade: Number(prob.toFixed(2)),
+          ev: Number(ev.toFixed(3)),
+          recomendacao: ev > 0 ? "VALUE BET" : "SEM VALOR"
         });
+
+      } catch (e) {
+        console.log("ERRO AO PROCESSAR ODDS:", fixtureId);
       }
     }
 
-    console.log("RESULTADOS COM VALOR:", resultados.length);
+    console.log("TOTAL RESULTADOS:", resultados.length);
 
     return resultados;
 
   } catch (error) {
-    console.error("ERRO:", error.message);
+    console.error("ERRO NO SCAN:", error.message);
     return [];
   }
 }
