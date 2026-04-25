@@ -6,9 +6,9 @@ const LIGAS_TOP = [
   "Serie A",
   "Bundesliga",
   "Ligue 1",
-  "Brasileirão Série A",
-  "UEFA Champions League",
-  "UEFA Europa League"
+  "Brazil",
+  "Champions League",
+  "Europa League"
 ];
 
 const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
@@ -22,7 +22,7 @@ export async function scanGames() {
     limite.setDate(agora.getDate() + 3);
 
     const filtrados = jogos.filter(jogo => {
-      const liga = jogo?.league?.name;
+      const liga = jogo?.league?.name || "";
       const status = jogo?.fixture?.status?.short;
       const dataRaw = jogo?.fixture?.date;
 
@@ -30,8 +30,13 @@ export async function scanGames() {
 
       const dataJogo = new Date(dataRaw);
 
+      // 🔥 MATCH FLEXÍVEL
+      const ligaValida = LIGAS_TOP.some(l =>
+        liga.toLowerCase().includes(l.toLowerCase())
+      );
+
       return (
-        LIGAS_TOP.includes(liga) &&
+        ligaValida &&
         STATUS_VALIDOS.includes(status) &&
         dataJogo >= agora &&
         dataJogo <= limite
