@@ -1,23 +1,20 @@
-import { API_KEY, BASE_URL } from "../configuração/api.js";
+import fetch from "node-fetch";
 
-export async function getFixtures() {
-  const response = await fetch(`${BASE_URL}/fixtures?next=10`, {
+const API_KEY = process.env.API_KEY;
+
+export async function getJogosHoje() {
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const url = `https://v3.football.api-sports.io/fixtures?date=${hoje}`;
+
+  const response = await fetch(url, {
+    method: "GET",
     headers: {
       "x-apisports-key": API_KEY
     }
   });
 
   const data = await response.json();
-  return data.response;
-}
 
-export async function getOdds(fixtureId) {
-  const response = await fetch(`${BASE_URL}/odds?fixture=${fixtureId}`, {
-    headers: {
-      "x-apisports-key": API_KEY
-    }
-  });
-
-  const data = await response.json();
-  return data.response;
+  return data.response || [];
 }
