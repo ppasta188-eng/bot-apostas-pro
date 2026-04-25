@@ -1,17 +1,19 @@
 import { getJogos3Dias } from "./apiService.js";
 
-const LIGAS_TOP = [
-  "Premier League",
-  "La Liga",
-  "Serie A",
-  "Bundesliga",
-  "Ligue 1",
-  "Brazil",
-  "Champions League",
-  "Europa League"
+// 🔥 LIGAS REAIS (IDs da API - MUITO MAIS PRECISO)
+const LIGAS_IDS = [
+  39,   // Premier League
+  140,  // La Liga
+  135,  // Serie A
+  78,   // Bundesliga
+  61,   // Ligue 1
+  71,   // Brasileirão Série A
+  253,  // MLS
+  128,  // Argentina
+  2,    // Champions League
+  3     // Europa League
 ];
 
-// ✅ Apenas jogos jogáveis
 const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
 
 export async function scanGames() {
@@ -23,7 +25,7 @@ export async function scanGames() {
     limite.setDate(agora.getDate() + 3);
 
     const filtrados = jogos.filter(jogo => {
-      const liga = jogo?.league?.name || "";
+      const ligaId = jogo?.league?.id;
       const status = jogo?.fixture?.status?.short;
       const dataRaw = jogo?.fixture?.date;
 
@@ -31,12 +33,8 @@ export async function scanGames() {
 
       const dataJogo = new Date(dataRaw);
 
-      const ligaValida = LIGAS_TOP.some(l =>
-        liga.toLowerCase().includes(l.toLowerCase())
-      );
-
       return (
-        ligaValida &&
+        LIGAS_IDS.includes(ligaId) &&
         STATUS_VALIDOS.includes(status) &&
         dataJogo >= agora &&
         dataJogo <= limite
@@ -44,7 +42,7 @@ export async function scanGames() {
     });
 
     console.log("TOTAL API:", jogos.length);
-    console.log("FILTRADOS:", filtrados.length);
+    console.log("FILTRADOS (TOP):", filtrados.length);
 
     return filtrados.slice(0, 10).map(jogo => ({
       jogo: `${jogo?.teams?.home?.name} vs ${jogo?.teams?.away?.name}`,
