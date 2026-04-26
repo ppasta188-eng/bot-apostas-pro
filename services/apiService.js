@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const API_KEY = process.env.API_KEY;
+console.log("API KEY:", API_KEY);
 const BASE_URL = "https://v3.football.api-sports.io";
 
 // 🔥 JOGOS (3 DIAS)
