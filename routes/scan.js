@@ -5,8 +5,8 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const resultado = await analisarJogos();
-    res.json(resultado);
+    const dados = await analisarJogos();
+    res.json(dados);
   } catch (error) {
     console.error("ERRO NA ROTA:", error.message);
     res.status(500).json({ erro: "Erro ao analisar jogos" });
