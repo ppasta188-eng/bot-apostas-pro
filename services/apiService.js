@@ -1,28 +1,30 @@
 import axios from "axios";
 
-const API_KEY = process.env.ODDS_API_KEY; // ✅ PADRÃO CORRETO
-const BASE_URL = "https://api.the-odds-api.com/v4/sports/soccer/odds";
+const API_KEY = process.env.ODDS_API_KEY;
 
 export async function getJogos3Dias() {
   try {
-    console.log("API KEY:", API_KEY); // 🔍 DEBUG
+    const hoje = new Date();
+    const amanha = new Date();
+    amanha.setDate(hoje.getDate() + 3);
 
-    const response = await axios.get(BASE_URL, {
+    const from = hoje.toISOString();
+    const to = amanha.toISOString();
+
+    const response = await axios.get("https://api.the-odds-api.com/v4/sports/soccer/odds", {
       params: {
         apiKey: API_KEY,
         regions: "eu",
         markets: "h2h",
-        oddsFormat: "decimal"
+        oddsFormat: "decimal",
+        dateFormat: "iso"
       }
     });
 
     return response.data;
 
   } catch (error) {
-    console.error(
-      "Erro ao buscar jogos:",
-      error.response?.data || error.message
-    );
+    console.error("Erro ao buscar jogos:", error.message);
     return [];
   }
 }
