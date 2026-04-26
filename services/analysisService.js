@@ -42,7 +42,6 @@ export async function scanGames() {
       );
     });
 
-    console.log("TOTAL JOGOS API:", jogos.length);
     console.log("TOTAL FILTRADOS:", filtrados.length);
 
     const resultados = [];
@@ -50,39 +49,41 @@ export async function scanGames() {
     for (const jogo of filtrados.slice(0, 10)) {
       const fixtureId = jogo.fixture.id;
 
-      const oddsData = await getOddsByFixture(fixtureId);
-
-      // 🔥 SE NÃO TEM ODDS → IGNORA
-      if (!oddsData || oddsData.length === 0) {
-        console.log("SEM ODDS:", fixtureId);
-        continue;
-      }
+      let odd = null;
+      let prob = null;
+      let ev = null;
+      let recomendacao = "SEM ODDS";
 
       try {
-        const odd =
-          oddsData[0]?.bookmakers[0]?.bets[0]?.values[0]?.odd;
+        const oddsData = await getOddsByFixture(fixtureId);
 
-        if (!odd) continue;
+        if (oddsData && oddsData.length > 0) {
+          const oddRaw =
+            oddsData[0]?.bookmakers[0]?.bets[0]?.values[0]?.odd;
 
-        const oddNum = parseFloat(odd);
+          if (oddRaw) {
+            const oddNum = parseFloat(oddRaw);
 
-        // 🔥 PROBABILIDADE SIMPLES (BASE INICIAL)
-        const prob = 1 / oddNum;
+            prob = 1 / oddNum;
+            ev = (prob * oddNum) - 1;
 
-        const ev = (prob * oddNum) - 1;
-
-        resultados.push({
-          jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
-          liga: jogo.league.name,
-          odd: oddNum,
-          probabilidade: Number(prob.toFixed(2)),
-          ev: Number(ev.toFixed(3)),
-          recomendacao: ev > 0 ? "VALUE BET" : "SEM VALOR"
-        });
-
+            odd = oddNum;
+            recomendacao = ev > 0 ? "VALUE BET" : "SEM VALOR";
+          }
+        }
       } catch (e) {
-        console.log("ERRO AO PROCESSAR ODDS:", fixtureId);
+        console.log("Erro odds:", fixtureId);
       }
+
+      resultados.push({
+        jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
+        liga: jogo.league.name,
+        horario: jogo.fixture.date,
+        odd,
+        probabilidade: prob,
+        ev,
+        recomendacao
+      });
     }
 
     console.log("TOTAL RESULTADOS:", resultados.length);
