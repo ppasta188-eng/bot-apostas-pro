@@ -1,14 +1,15 @@
 import express from "express";
-import { scanGames } from "../services/analysisService.js";
+import { analisarJogos } from "../services/analysisService.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const jogos = await scanGames();
-    res.json(jogos);
+    const dados = await analisarJogos();
+    res.json(dados);
   } catch (error) {
-    res.status(500).json({ erro: "Erro ao buscar jogos" });
+    console.error("ERRO NA ROTA:", error.message);
+    res.status(500).json({ erro: "Erro ao analisar jogos" });
   }
 });
 
