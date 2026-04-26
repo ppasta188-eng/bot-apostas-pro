@@ -20,8 +20,19 @@ export async function scanGames() {
       let ev = null;
 
       if (casa) {
-        const prob = 1 / casa;
-        ev = (prob * casa) - 1;
+// 🔥 REMOVE MARGEM DA CASA (OVERROUND)
+
+const probCasa = 1 / casa;
+const probFora = 1 / fora;
+
+const soma = probCasa + probFora;
+
+// normalização (fair probability)
+const probCasaAjustada = probCasa / soma;
+const probForaAjustada = probFora / soma;
+
+// EV real (usando prob ajustada)
+ev = (probCasaAjustada * casa) - 1;
 
         recomendacao = ev > 0 ? "VALUE BET" : "SEM VALOR";
       }
