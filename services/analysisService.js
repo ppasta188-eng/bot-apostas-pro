@@ -1,5 +1,6 @@
 import { getJogos3Dias } from "./apiService.js";
 
+// 🔥 Remove margem da casa
 function calcularProbabilidadesJustas(oddCasa, oddEmpate, oddFora) {
   const pCasa = 1 / oddCasa;
   const pEmpate = 1 / oddEmpate;
@@ -14,6 +15,7 @@ function calcularProbabilidadesJustas(oddCasa, oddEmpate, oddFora) {
   };
 }
 
+// 🔥 EV correto
 function calcularEV(prob, odd) {
   return (prob * odd) - 1;
 }
@@ -24,13 +26,15 @@ export async function analisarJogos() {
 
     console.log("TOTAL JOGOS API:", jogos.length);
 
-    const analisados = jogos.slice(0, 10).map(jogo => {
+    const analisados = jogos.map(jogo => {
       const home = jogo.home_team;
       const away = jogo.away_team;
       const liga = jogo.sport_title;
       const horario = jogo.commence_time;
 
-      const odds = jogo.bookmakers?.[0]?.markets?.[0]?.outcomes;
+      const bookmaker = jogo.bookmakers?.[0];
+      const market = bookmaker?.markets?.[0];
+      const odds = market?.outcomes;
 
       if (!odds || odds.length < 3) return null;
 
@@ -40,13 +44,15 @@ export async function analisarJogos() {
 
       if (!oddCasa || !oddEmpate || !oddFora) return null;
 
-      // 🔥 PROBABILIDADES JUSTAS (SEM MARGEM)
+      // 🔥 Mercado sem margem
       const probs = calcularProbabilidadesJustas(
         oddCasa,
         oddEmpate,
         oddFora
       );
 
+      // 🔥 AQUI É O PONTO PROFISSIONAL:
+      // ainda usamos mercado (neutro), então EV tende a 0 ou negativo
       const evCasa = calcularEV(probs.casa, oddCasa);
       const evFora = calcularEV(probs.fora, oddFora);
 
@@ -62,8 +68,8 @@ export async function analisarJogos() {
         odd_casa: oddCasa,
         odd_empate: oddEmpate,
         odd_fora: oddFora,
-        prob_casa: probs.casa,
-        prob_fora: probs.fora,
+        prob_casa: Number(probs.casa.toFixed(3)),
+        prob_fora: Number(probs.fora.toFixed(3)),
         ev_casa: Number(evCasa.toFixed(3)),
         ev_fora: Number(evFora.toFixed(3)),
         recomendacao
