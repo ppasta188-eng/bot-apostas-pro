@@ -1,7 +1,6 @@
 import { getJogos3Dias } from "./apiService.js";
 
-// 🔥 CALCULAR PROBABILIDADES REAIS
-function calcularProbabilidades(oddCasa, oddEmpate, oddFora) {
+function calcularProbabilidadesJustas(oddCasa, oddEmpate, oddFora) {
   const pCasa = 1 / oddCasa;
   const pEmpate = 1 / oddEmpate;
   const pFora = 1 / oddFora;
@@ -15,88 +14,68 @@ function calcularProbabilidades(oddCasa, oddEmpate, oddFora) {
   };
 }
 
-// 🔥 CALCULAR EV
 function calcularEV(prob, odd) {
   return (prob * odd) - 1;
 }
 
-// 🔥 SCAN PRINCIPAL
-export async function scanGames() {
+export async function analisarJogos() {
   try {
     const jogos = await getJogos3Dias();
 
     console.log("TOTAL JOGOS API:", jogos.length);
 
-    const agora = new Date();
-    const limite = new Date();
-    limite.setDate(agora.getDate() + 3);
+    const analisados = jogos.slice(0, 10).map(jogo => {
+      const home = jogo.home_team;
+      const away = jogo.away_team;
+      const liga = jogo.sport_title;
+      const horario = jogo.commence_time;
 
-    const resultados = [];
+      const odds = jogo.bookmakers?.[0]?.markets?.[0]?.outcomes;
 
-    for (const jogo of jogos) {
-      try {
-        const dataJogo = new Date(jogo?.commence_time);
+      if (!odds || odds.length < 3) return null;
 
-        // 🔥 FILTRO APENAS POR DATA (SEM LIGA)
-        if (dataJogo < agora || dataJogo > limite) continue;
+      const oddCasa = odds.find(o => o.name === home)?.price;
+      const oddEmpate = odds.find(o => o.name === "Draw")?.price;
+      const oddFora = odds.find(o => o.name === away)?.price;
 
-        const bookmaker = jogo.bookmakers?.[0];
-        const market = bookmaker?.markets?.find(m => m.key === "h2h");
+      if (!oddCasa || !oddEmpate || !oddFora) return null;
 
-        if (!market) continue;
+      // 🔥 PROBABILIDADES JUSTAS (SEM MARGEM)
+      const probs = calcularProbabilidadesJustas(
+        oddCasa,
+        oddEmpate,
+        oddFora
+      );
 
-        const outcomes = market.outcomes;
+      const evCasa = calcularEV(probs.casa, oddCasa);
+      const evFora = calcularEV(probs.fora, oddFora);
 
-        const homeTeam = jogo.home_team;
-        const awayTeam = jogo.away_team;
+      let recomendacao = "SEM VALOR";
 
-        let oddCasa = null;
-        let oddEmpate = null;
-        let oddFora = null;
+      if (evCasa > 0.05) recomendacao = "VALUE BET CASA";
+      else if (evFora > 0.05) recomendacao = "VALUE BET FORA";
 
-        for (const o of outcomes) {
-          if (o.name === homeTeam) oddCasa = o.price;
-          else if (o.name === awayTeam) oddFora = o.price;
-          else if (o.name.toLowerCase().includes("draw")) oddEmpate = o.price;
-        }
+      return {
+        jogo: `${home} vs ${away}`,
+        liga,
+        horario,
+        odd_casa: oddCasa,
+        odd_empate: oddEmpate,
+        odd_fora: oddFora,
+        prob_casa: probs.casa,
+        prob_fora: probs.fora,
+        ev_casa: Number(evCasa.toFixed(3)),
+        ev_fora: Number(evFora.toFixed(3)),
+        recomendacao
+      };
+    }).filter(Boolean);
 
-        if (!oddCasa || !oddEmpate || !oddFora) continue;
+    console.log("TOTAL ANALISADOS:", analisados.length);
 
-        const probs = calcularProbabilidades(
-          oddCasa,
-          oddEmpate,
-          oddFora
-        );
-
-        const evCasa = calcularEV(probs.casa, oddCasa);
-        const evFora = calcularEV(probs.fora, oddFora);
-
-        resultados.push({
-          jogo: `${homeTeam} vs ${awayTeam}`,
-          liga: jogo.sport_title,
-          horario: jogo.commence_time,
-          odd_casa: oddCasa,
-          odd_empate: oddEmpate,
-          odd_fora: oddFora,
-          ev_casa: Number(evCasa.toFixed(3)),
-          ev_fora: Number(evFora.toFixed(3)),
-          recomendacao:
-            evCasa > 0.05 ? "BACK CASA" :
-            evFora > 0.05 ? "BACK FORA" :
-            "SEM VALOR"
-        });
-
-      } catch (err) {
-        console.log("Erro jogo:", err.message);
-      }
-    }
-
-    console.log("TOTAL ANALISADOS:", resultados.length);
-
-    return resultados.slice(0, 10);
+    return analisados;
 
   } catch (error) {
-    console.error("ERRO GERAL:", error.message);
+    console.error("ERRO NA ANALISE:", error.message);
     return [];
   }
 }
