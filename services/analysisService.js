@@ -1,74 +1,44 @@
-import { getJogos3Dias, getOddsByFixture } from "./apiService.js";
-
-const STATUS_VALIDOS = ["NS", "1H", "HT", "2H"];
+import { getJogos3Dias } from "./apiService.js";
 
 export async function scanGames() {
   try {
     const jogos = await getJogos3Dias();
 
-    console.log("TOTAL JOGOS API:", jogos.length);
+    const resultados = jogos.slice(0, 10).map(jogo => {
+      const home = jogo.home_team;
+      const away = jogo.away_team;
 
-    const agora = new Date();
+      const bookmaker = jogo.bookmakers?.[0];
+      const market = bookmaker?.markets?.[0];
 
-    const filtrados = jogos.filter(jogo => {
-      const status = jogo?.fixture?.status?.short;
-      const data = new Date(jogo?.fixture?.date);
+      const odds = market?.outcomes || [];
 
-      return (
-        STATUS_VALIDOS.includes(status) &&
-        data >= agora
-      );
-    });
+      const casa = odds.find(o => o.name === home)?.price;
+      const fora = odds.find(o => o.name === away)?.price;
 
-    console.log("TOTAL FILTRADOS:", filtrados.length);
-
-    const resultados = [];
-
-    for (const jogo of filtrados.slice(0, 10)) {
-      const fixtureId = jogo.fixture.id;
-
-      let odd = null;
-      let prob = null;
+      let recomendacao = "SEM DADOS";
       let ev = null;
-      let recomendacao = "SEM ODDS";
 
-      try {
-        const oddsData = await getOddsByFixture(fixtureId);
+      if (casa) {
+        const prob = 1 / casa;
+        ev = (prob * casa) - 1;
 
-        if (oddsData.length > 0) {
-          const oddRaw =
-            oddsData[0]?.bookmakers[0]?.bets[0]?.values[0]?.odd;
-
-          if (oddRaw) {
-            const oddNum = parseFloat(oddRaw);
-
-            prob = 1 / oddNum;
-            ev = (prob * oddNum) - 1;
-
-            odd = oddNum;
-            recomendacao = ev > 0 ? "VALUE BET" : "SEM VALOR";
-          }
-        }
-      } catch (e) {
-        console.log("Erro odds:", fixtureId);
+        recomendacao = ev > 0 ? "VALUE BET" : "SEM VALOR";
       }
 
-      resultados.push({
-        jogo: `${jogo.teams.home.name} vs ${jogo.teams.away.name}`,
-        liga: jogo.league.name,
-        pais: jogo.league.country,
-        horario: jogo.fixture.date,
-        odd,
-        probabilidade: prob,
+      return {
+        jogo: `${home} vs ${away}`,
+        odd_casa: casa,
+        odd_fora: fora,
         ev,
         recomendacao
-      });
-    }
+      };
+    });
 
     return resultados;
 
   } catch (error) {
-    console.error("ERRO NO SCAN:", error.message);
+    console.error("Erro no scan:", error.message);
     return [];
   }
 }
