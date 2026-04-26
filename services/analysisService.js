@@ -1,18 +1,6 @@
 import { getJogos3Dias } from "./apiService.js";
 
-// 🔥 LIGAS QUE QUEREMOS
-const LIGAS_TOP = [
-  "Premier League",
-  "La Liga",
-  "Serie A",
-  "Bundesliga",
-  "Ligue 1",
-  "Brazil",
-  "Champions",
-  "Europa"
-];
-
-// 🔥 CALCULAR PROBABILIDADES REAIS (SEM MARGEM)
+// 🔥 CALCULAR PROBABILIDADES REAIS
 function calcularProbabilidades(oddCasa, oddEmpate, oddFora) {
   const pCasa = 1 / oddCasa;
   const pEmpate = 1 / oddEmpate;
@@ -37,6 +25,8 @@ export async function scanGames() {
   try {
     const jogos = await getJogos3Dias();
 
+    console.log("TOTAL JOGOS API:", jogos.length);
+
     const agora = new Date();
     const limite = new Date();
     limite.setDate(agora.getDate() + 3);
@@ -45,15 +35,9 @@ export async function scanGames() {
 
     for (const jogo of jogos) {
       try {
-        const liga = jogo?.sport_title || "";
         const dataJogo = new Date(jogo?.commence_time);
 
-        // FILTRO DE DATA + LIGA
-        const ligaValida = LIGAS_TOP.some(l =>
-          liga.toLowerCase().includes(l.toLowerCase())
-        );
-
-        if (!ligaValida) continue;
+        // 🔥 FILTRO APENAS POR DATA (SEM LIGA)
         if (dataJogo < agora || dataJogo > limite) continue;
 
         const bookmaker = jogo.bookmakers?.[0];
@@ -63,7 +47,6 @@ export async function scanGames() {
 
         const outcomes = market.outcomes;
 
-        // 🔥 IDENTIFICAR CASA / EMPATE / FORA
         const homeTeam = jogo.home_team;
         const awayTeam = jogo.away_team;
 
@@ -79,20 +62,18 @@ export async function scanGames() {
 
         if (!oddCasa || !oddEmpate || !oddFora) continue;
 
-        // 🔥 PROBABILIDADES REAIS
         const probs = calcularProbabilidades(
           oddCasa,
           oddEmpate,
           oddFora
         );
 
-        // 🔥 EV
         const evCasa = calcularEV(probs.casa, oddCasa);
         const evFora = calcularEV(probs.fora, oddFora);
 
         resultados.push({
           jogo: `${homeTeam} vs ${awayTeam}`,
-          liga: liga,
+          liga: jogo.sport_title,
           horario: jogo.commence_time,
           odd_casa: oddCasa,
           odd_empate: oddEmpate,
@@ -106,11 +87,10 @@ export async function scanGames() {
         });
 
       } catch (err) {
-        console.log("Erro em jogo:", err.message);
+        console.log("Erro jogo:", err.message);
       }
     }
 
-    console.log("TOTAL JOGOS:", jogos.length);
     console.log("TOTAL ANALISADOS:", resultados.length);
 
     return resultados.slice(0, 10);
