@@ -1,26 +1,22 @@
 import axios from "axios";
 
 const API_KEY = process.env.API_KEY;
-console.log("API KEY:", API_KEY);
 const BASE_URL = "https://v3.football.api-sports.io";
 
-// 🔥 JOGOS (3 DIAS)
+// 🔥 BUSCAR JOGOS (TESTE FIXO PARA VALIDAR API)
 export async function getJogos3Dias() {
   try {
-    const hoje = new Date();
-    const dataFinal = new Date();
-
-    dataFinal.setDate(hoje.getDate() + 3);
-
-    const from = hoje.toISOString().split("T")[0];
-    const to = dataFinal.toISOString().split("T")[0];
-
     const response = await axios.get(`${BASE_URL}/fixtures`, {
-      params: { from, to },
+      params: {
+        date: "2026-04-25", // 🔥 data fixa pra teste
+        timezone: "America/Sao_Paulo"
+      },
       headers: {
         "x-apisports-key": API_KEY
       }
     });
+
+    console.log("RESPOSTA API:", JSON.stringify(response.data, null, 2));
 
     return response.data.response;
 
@@ -30,7 +26,7 @@ export async function getJogos3Dias() {
   }
 }
 
-// 🔥 ODDS
+// 🔥 BUSCAR ODDS
 export async function getOddsByFixture(fixtureId) {
   try {
     const response = await axios.get(`${BASE_URL}/odds`, {
