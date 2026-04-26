@@ -1,48 +1,25 @@
 import axios from "axios";
 
-const API_KEY = process.env.API_KEY;
-const BASE_URL = "https://v3.football.api-sports.io";
+const API_KEY = process.env.ODDS_API_KEY;
+const BASE_URL = "https://api.the-odds-api.com/v4/sports/soccer/odds";
 
-// 🔥 BUSCAR JOGOS (TESTE FIXO PARA VALIDAR API)
 export async function getJogos3Dias() {
   try {
-    const response = await axios.get(`${BASE_URL}/fixtures`, {
+    const response = await axios.get(BASE_URL, {
       params: {
-        date: "2026-04-25", // 🔥 data fixa pra teste
-        timezone: "America/Sao_Paulo"
-      },
-      headers: {
-        "x-apisports-key": API_KEY
+        apiKey: API_KEY,
+        regions: "eu",
+        markets: "h2h",
+        oddsFormat: "decimal"
       }
     });
 
-    console.log("RESPOSTA API:", JSON.stringify(response.data, null, 2));
+    console.log("TOTAL JOGOS:", response.data.length);
 
-    return response.data.response;
-
-  } catch (error) {
-    console.error("Erro ao buscar jogos:", error.message);
-    return [];
-  }
-}
-
-// 🔥 BUSCAR ODDS
-export async function getOddsByFixture(fixtureId) {
-  try {
-    const response = await axios.get(`${BASE_URL}/odds`, {
-      params: {
-        fixture: fixtureId,
-        bookmaker: 8
-      },
-      headers: {
-        "x-apisports-key": API_KEY
-      }
-    });
-
-    return response.data.response;
+    return response.data;
 
   } catch (error) {
-    console.error("Erro ao buscar odds:", error.message);
+    console.error("Erro API Odds:", error.message);
     return [];
   }
 }
