@@ -1,55 +1,122 @@
 import { getJogos3Dias } from "./apiService.js";
 
+// 🔥 LIGAS QUE QUEREMOS
+const LIGAS_TOP = [
+  "Premier League",
+  "La Liga",
+  "Serie A",
+  "Bundesliga",
+  "Ligue 1",
+  "Brazil",
+  "Champions",
+  "Europa"
+];
+
+// 🔥 CALCULAR PROBABILIDADES REAIS (SEM MARGEM)
+function calcularProbabilidades(oddCasa, oddEmpate, oddFora) {
+  const pCasa = 1 / oddCasa;
+  const pEmpate = 1 / oddEmpate;
+  const pFora = 1 / oddFora;
+
+  const soma = pCasa + pEmpate + pFora;
+
+  return {
+    casa: pCasa / soma,
+    empate: pEmpate / soma,
+    fora: pFora / soma
+  };
+}
+
+// 🔥 CALCULAR EV
+function calcularEV(prob, odd) {
+  return (prob * odd) - 1;
+}
+
+// 🔥 SCAN PRINCIPAL
 export async function scanGames() {
   try {
     const jogos = await getJogos3Dias();
 
-    const resultados = jogos.slice(0, 10).map(jogo => {
-      const home = jogo.home_team;
-      const away = jogo.away_team;
+    const agora = new Date();
+    const limite = new Date();
+    limite.setDate(agora.getDate() + 3);
 
-      const bookmaker = jogo.bookmakers?.[0];
-      const market = bookmaker?.markets?.[0];
+    const resultados = [];
 
-      const odds = market?.outcomes || [];
+    for (const jogo of jogos) {
+      try {
+        const liga = jogo?.sport_title || "";
+        const dataJogo = new Date(jogo?.commence_time);
 
-      const casa = odds.find(o => o.name === home)?.price;
-      const fora = odds.find(o => o.name === away)?.price;
+        // FILTRO DE DATA + LIGA
+        const ligaValida = LIGAS_TOP.some(l =>
+          liga.toLowerCase().includes(l.toLowerCase())
+        );
 
-      let recomendacao = "SEM DADOS";
-      let ev = null;
+        if (!ligaValida) continue;
+        if (dataJogo < agora || dataJogo > limite) continue;
 
-      if (casa) {
-// 🔥 REMOVE MARGEM DA CASA (OVERROUND)
+        const bookmaker = jogo.bookmakers?.[0];
+        const market = bookmaker?.markets?.find(m => m.key === "h2h");
 
-const probCasa = 1 / casa;
-const probFora = 1 / fora;
+        if (!market) continue;
 
-const soma = probCasa + probFora;
+        const outcomes = market.outcomes;
 
-// normalização (fair probability)
-const probCasaAjustada = probCasa / soma;
-const probForaAjustada = probFora / soma;
+        // 🔥 IDENTIFICAR CASA / EMPATE / FORA
+        const homeTeam = jogo.home_team;
+        const awayTeam = jogo.away_team;
 
-// EV real (usando prob ajustada)
-ev = (probCasaAjustada * casa) - 1;
+        let oddCasa = null;
+        let oddEmpate = null;
+        let oddFora = null;
 
-        recomendacao = ev > 0 ? "VALUE BET" : "SEM VALOR";
+        for (const o of outcomes) {
+          if (o.name === homeTeam) oddCasa = o.price;
+          else if (o.name === awayTeam) oddFora = o.price;
+          else if (o.name.toLowerCase().includes("draw")) oddEmpate = o.price;
+        }
+
+        if (!oddCasa || !oddEmpate || !oddFora) continue;
+
+        // 🔥 PROBABILIDADES REAIS
+        const probs = calcularProbabilidades(
+          oddCasa,
+          oddEmpate,
+          oddFora
+        );
+
+        // 🔥 EV
+        const evCasa = calcularEV(probs.casa, oddCasa);
+        const evFora = calcularEV(probs.fora, oddFora);
+
+        resultados.push({
+          jogo: `${homeTeam} vs ${awayTeam}`,
+          liga: liga,
+          horario: jogo.commence_time,
+          odd_casa: oddCasa,
+          odd_empate: oddEmpate,
+          odd_fora: oddFora,
+          ev_casa: Number(evCasa.toFixed(3)),
+          ev_fora: Number(evFora.toFixed(3)),
+          recomendacao:
+            evCasa > 0.05 ? "BACK CASA" :
+            evFora > 0.05 ? "BACK FORA" :
+            "SEM VALOR"
+        });
+
+      } catch (err) {
+        console.log("Erro em jogo:", err.message);
       }
+    }
 
-      return {
-        jogo: `${home} vs ${away}`,
-        odd_casa: casa,
-        odd_fora: fora,
-        ev,
-        recomendacao
-      };
-    });
+    console.log("TOTAL JOGOS:", jogos.length);
+    console.log("TOTAL ANALISADOS:", resultados.length);
 
-    return resultados;
+    return resultados.slice(0, 10);
 
   } catch (error) {
-    console.error("Erro no scan:", error.message);
+    console.error("ERRO GERAL:", error.message);
     return [];
   }
 }
