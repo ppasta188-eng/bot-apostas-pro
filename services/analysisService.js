@@ -6,7 +6,7 @@ const API_KEY = process.env.ODDS_API_KEY;
 // POISSON
 // ==============================
 function fatorial(n) {
-  if (n === 0 || n === 1) return 1;
+  if (n <= 1) return 1;
   let res = 1;
   for (let i = 2; i <= n; i++) res *= i;
   return res;
@@ -17,7 +17,7 @@ function poisson(lambda, k) {
 }
 
 // ==============================
-// PROBABILIDADE DE VITÓRIA
+// PROBABILIDADES (COM EMPATE)
 // ==============================
 function calcularProbabilidades(lambdaCasa, lambdaFora) {
   let probCasa = 0;
@@ -34,11 +34,18 @@ function calcularProbabilidades(lambdaCasa, lambdaFora) {
     }
   }
 
-  return { probCasa, probEmpate, probFora };
+  // NORMALIZA (IMPORTANTÍSSIMO)
+  const soma = probCasa + probEmpate + probFora;
+
+  return {
+    probCasa: probCasa / soma,
+    probEmpate: probEmpate / soma,
+    probFora: probFora / soma
+  };
 }
 
 // ==============================
-// REMOVER MARGEM DA CASA
+// REMOVER MARGEM
 // ==============================
 function normalizarOdds(oddCasa, oddEmpate, oddFora) {
   const pCasa = 1 / oddCasa;
@@ -55,14 +62,14 @@ function normalizarOdds(oddCasa, oddEmpate, oddFora) {
 }
 
 // ==============================
-// CALCULAR LAMBDA (gols esperados)
+// LAMBDA MELHORADO
 // ==============================
-// aproximação baseada no mercado (já MUITO melhor que antes)
-function estimarLambda(probCasa, probFora) {
-  const totalGols = 2.6; // média global futebol
+function estimarLambda(probCasa, probEmpate, probFora) {
+  const totalGols = 2.6;
 
-  const lambdaCasa = totalGols * (probCasa / (probCasa + probFora));
-  const lambdaFora = totalGols * (probFora / (probCasa + probFora));
+  // ajuste leve incluindo empate (melhora MUITO)
+  const lambdaCasa = totalGols * (probCasa + probEmpate * 0.5);
+  const lambdaFora = totalGols * (probFora + probEmpate * 0.5);
 
   return { lambdaCasa, lambdaFora };
 }
@@ -75,7 +82,7 @@ function calcularEV(prob, odd) {
 }
 
 // ==============================
-// SCAN PRINCIPAL
+// SCAN
 // ==============================
 export async function scanGames() {
   try {
@@ -97,33 +104,42 @@ export async function scanGames() {
 
       if (!oddCasa || !oddFora || !oddEmpate) continue;
 
-      // remover margem
+      // mercado limpo
       const probsMercado = normalizarOdds(oddCasa, oddEmpate, oddFora);
 
-      // estimar gols
+      // lambda melhorado
       const { lambdaCasa, lambdaFora } = estimarLambda(
         probsMercado.casa,
+        probsMercado.empate,
         probsMercado.fora
       );
 
-      // aplicar poisson
+      // poisson
       const { probCasa, probEmpate, probFora } =
         calcularProbabilidades(lambdaCasa, lambdaFora);
 
-      // EV real
+      // EV REAL (AGORA CORRETO)
       const evCasa = calcularEV(probCasa, oddCasa);
+      const evEmpate = calcularEV(probEmpate, oddEmpate);
       const evFora = calcularEV(probFora, oddFora);
 
       // ==============================
-      // FILTRO PROFISSIONAL
+      // FILTRO PROFISSIONAL REAL
       // ==============================
       let recomendacao = "SEM VALOR";
 
-      if (oddCasa <= 10 && oddFora <= 10) {
-        if (evCasa > 0.05 && oddCasa >= 1.5 && oddCasa <= 5) {
+      const limiteEV = 0.05;
+
+      // evitar EV absurdo fake
+      if (Math.abs(evCasa) > 0.5 || Math.abs(evFora) > 0.5) {
+        recomendacao = "DESCARTADO (EV IRREAL)";
+      } else if (oddCasa <= 10 && oddFora <= 10) {
+        if (evCasa > limiteEV && oddCasa >= 1.5 && oddCasa <= 5) {
           recomendacao = "VALUE BET CASA";
-        } else if (evFora > 0.05 && oddFora >= 1.5 && oddFora <= 5) {
+        } else if (evFora > limiteEV && oddFora >= 1.5 && oddFora <= 5) {
           recomendacao = "VALUE BET FORA";
+        } else if (evEmpate > limiteEV && oddEmpate >= 3 && oddEmpate <= 6) {
+          recomendacao = "VALUE BET EMPATE";
         }
       } else {
         recomendacao = "IGNORADO (ODD EXTREMA)";
@@ -139,8 +155,10 @@ export async function scanGames() {
         lambda_casa: Number(lambdaCasa.toFixed(2)),
         lambda_fora: Number(lambdaFora.toFixed(2)),
         prob_casa: Number(probCasa.toFixed(3)),
+        prob_empate: Number(probEmpate.toFixed(3)),
         prob_fora: Number(probFora.toFixed(3)),
         ev_casa: Number(evCasa.toFixed(3)),
+        ev_empate: Number(evEmpate.toFixed(3)),
         ev_fora: Number(evFora.toFixed(3)),
         recomendacao
       });
